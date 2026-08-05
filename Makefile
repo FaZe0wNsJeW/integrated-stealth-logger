@@ -1,13 +1,15 @@
-CC = x86_64-w64-mingw32-gcc
-CFLAGS = -O2 -Wall -Wextra -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0601
-LDFLAGS = -lkernel32 -luser32 -ladvapi32 -lws2_32 -lcrypt32 -lshell32
+CC = gcc
+CFLAGS = -Wall -Wextra -O2
 
-all: stealth-logger.exe
+all: sentinel_test sentinel_upgrade
 
-stealth-logger.exe: main.cpp
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+sentinel_test: sentinel_test.c
+	$(CC) $(CFLAGS) -o sentinel_test sentinel_test.c
+
+sentinel_upgrade: sentinel_upgrade.c sentinel_upgrade.h
+	$(CC) $(CFLAGS) -c sentinel_upgrade.c
 
 clean:
-	rm -f stealth-logger.exe *.o
+	rm -f sentinel_test sentinel_upgrade.o
 
 .PHONY: all clean
