@@ -1,49 +1,62 @@
 # Integrated Stealth Logger
 
-Combines the stealth payload project with the logger project for a complete FUD solution.
+A modular, stealthy post-exploitation framework for Windows systems.
 
 ## Features
-- Stealth payload execution with anti-detection measures
-- Comprehensive logging capabilities
-- C2 communication support
-- Memory evasion techniques
-- Keylogger functionality
-- Payload injection
-- Persistence mechanisms
-- Anti-sandbox detection
-- String obfuscation
-- API resolution
 
-## Build Instructions
-
-### Windows (MSVC)
-```bash
-build.bat
-```
-
-### Linux (MinGW)
-```bash
-make
-```
-
-### Manual Build
-```bash
-cl /EHsc main.cpp kernel32.lib user32.lib advapi32.lib ws2_32.lib crypt32.lib shell32.lib /Fe:stealth-logger.exe
-```
+- **Modular Architecture**: Load only the modules you need
+- **Command-Line Interface**: Easy to use with simple syntax
+- **Stealthy Operations**: Designed to avoid detection by EDR/XDR systems
+- **Extensible**: Add new modules without recompiling the entire framework
 
 ## Usage
+
 ```bash
-stealth-logger.exe
+stealthlogger -p <module1,module2,...>
 ```
 
-## Features
-- ✅ Stealth payload execution with anti-detection measures
-- ✅ Comprehensive logging capabilities
-- ✅ C2 communication support
-- ✅ Memory evasion techniques
-- ✅ Keylogger functionality
-- ✅ Payload injection
-- ✅ Persistence mechanisms
-- ✅ Anti-sandbox detection
-- ✅ String obfuscation
-- ✅ API resolution
+### Module IDs
+
+1. **Credential Harvester** - Extracts credentials from system
+2. **Lateral Movement** - Performs lateral movement attacks
+3. **File Transfer** - Transfers files between target and C2
+4. **Process Injection** - Injects payloads into remote processes
+5. **System Information** - Gathers detailed system data
+6. **ETW/AMSI Patcher** - Patches ETW and AMSI in memory
+7. **Call Stack Spoofer** - Implements call stack spoofing techniques
+8. **Keylogger** - Captures keystrokes with timestamps
+9. **Screenshot** - Periodically captures desktop screenshots
+10. **Network Scanner** - Maps local network and identifies vulnerable hosts
+
+### Examples
+
+```bash
+# Load credential harvester and file transfer modules
+stealthlogger -p 1,3
+
+# Load all evasion modules
+stealthlogger -p 6,7
+
+# Load complete post-exploitation suite
+stealthlogger -p 1,2,3,4,5,8,9,10
+```
+
+## Compilation
+
+```bash
+# Cross-compile from Linux
+make
+
+# Compile on Windows with MinGW
+gcc -Os -s -o stealthlogger.exe main.c modular_payload.c
+```
+
+## Notes
+
+- This tool is for educational purposes only
+- Use only on systems you own or have explicit permission to test
+- The authors are not responsible for any misuse or damage caused by this tool
+
+## License
+
+MIT License - see LICENSE file for details

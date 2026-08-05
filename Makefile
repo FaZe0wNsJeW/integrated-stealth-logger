@@ -1,15 +1,11 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -O2
+CC = x86_64-w64-mingw32-gcc
+CFLAGS = -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections -fno-exceptions -fno-rtti -fvisibility=hidden
+TARGET = stealthlogger.exe
 
-all: sentinel_test sentinel_upgrade
+all: $(TARGET)
 
-sentinel_test: sentinel_test.c
-	$(CC) $(CFLAGS) -o sentinel_test sentinel_test.c
-
-sentinel_upgrade: sentinel_upgrade.c sentinel_upgrade.h
-	$(CC) $(CFLAGS) -c sentinel_upgrade.c
+$(TARGET): main.c modular_payload.c modular_payload.h
+	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f sentinel_test sentinel_upgrade.o
-
-.PHONY: all clean
+	rm -f $(TARGET)
