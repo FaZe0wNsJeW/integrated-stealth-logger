@@ -1,12 +1,11 @@
 #ifndef C2_COMMUNICATION_FIXED_H
 #define C2_COMMUNICATION_FIXED_H
 
-#include "payload_config.h"
+#include <stdint.h>
 
-// C2 communication functions
-int init_c2_communication();
-int send_c2_data(const char *data, size_t len);
-int receive_c2_data(char *buffer, size_t len);
-void cleanup_c2_communication();
+int c2_init();
+int c2_send_data(const char *data, size_t length);
+int c2_receive_data(char *buffer, size_t max_length);
+void c2_cleanup();
 
 #endif // C2_COMMUNICATION_FIXED_H
