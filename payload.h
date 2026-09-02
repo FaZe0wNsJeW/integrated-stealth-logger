@@ -1,12 +1,9 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
-#include <stdint.h>
+#include <windows.h>
 
-int payload_init();
-void payload_cleanup();
-int payload_log_key(int key);
-int payload_log_string(const char *str);
-const char *payload_get_version();
+void RunPayload();
+__declspec(dllexport) void CALLBACK RunPayload(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow);
 
-#endif // PAYLOAD_H
+#endif

