@@ -1,31 +1,27 @@
-# Integrated Stealth Logger Makefile
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -DPIC -std=c99
-LDFLAGS = -shared -ldl
+CFLAGS = -Wall -Wextra -O2 -mwindows
+LDFLAGS = -lws2_32
 
-# Targets
-all: payload.so
+SRC_DIR = src
+OBJ_DIR = obj
 
-payload.so: main.o payload.o evasion.o c2_communication_fixed.o
-	$(CC) $(LDFLAGS) -o $@ $^
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
+OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
 
-main.o: main.c payload.h evasion.h c2_communication_fixed.h config.h
+TARGET = stealth_payload.exe
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-payload.o: payload.c payload.h payload_config.h evasion.h config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-evasion.o: evasion.c evasion.h config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-c2_communication_fixed.o: c2_communication_fixed.c c2_communication_fixed.h config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
 
 clean:
-	rm -f *.o payload.so
+	rm -rf $(OBJ_DIR) $(TARGET)
 
-install: payload.so
-	cp payload.so /usr/local/lib/
-	chmod 755 /usr/local/lib/payload.so
-
-.PHONY: all clean install
+.PHONY: all clean
